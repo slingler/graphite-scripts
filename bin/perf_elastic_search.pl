@@ -115,11 +115,11 @@ if( exists $cfg{'carbon-server'} and length $cfg{'carbon-server'} ) {
 
 #------------------------------------------------------------------------#
 # Collect and Decode the Cluster Statistics
-my @stats = qw(http os jvm process transport indices merges);
+my @stats = qw(http os jvm process transport indices merges thread_pool);
 my $qs = join('&', map { "$_=true" } @stats );
 my $nodes_url = exists $opt{local} && $opt{local}
-        ? "http://localhost:$opt{port}/_cluster/nodes/_local/stats?$qs"
-        : "http://$opt{host}:$opt{port}/_cluster/nodes/stats?$qs";
+        ? "http://localhost:$opt{port}/_nodes/_local/stats?$qs"
+        : "http://$opt{host}:$opt{port}/_nodes/stats?$qs";
 my $nodes_json = get($nodes_url);
 my $nodes_raw_data = JSON->new->decode( $nodes_json );
 my $nodes_data = parse_stats( $nodes_raw_data );
@@ -227,10 +227,6 @@ sub parse_stats {
         "http.total $node->{http}{total_opened}",
         ;
     # JVM Garbage Collectors;
-    push @stats,
-        "jvm.gc.count $node->{jvm}{gc}{collection_count}",
-        "jvm.gc.time_ms $node->{jvm}{gc}{collection_time_in_millis}",
-        ;
     foreach my $collector (keys %{ $node->{jvm}{gc}{collectors} } ) {
         my $col = $node->{jvm}{gc}{collectors}{$collector};
         my $prefix = "jvm.gc.collector.$collector";
@@ -254,8 +250,18 @@ sub parse_stats {
         ;
     # OS Information
     push @stats,
+        "os.load_average.one $node->{os}{load_average}[0]",
+        ;
+    # PROCESS Information
+    push @stats,
         "process.openfds $node->{process}{open_file_descriptors}",
         ;
+	# THREAD_POOL Information
+	push @stats,
+		"thread_pool.search.active $node->{thread_pool}{search}{active}",
+		"thread_pool.search.largest $node->{thread_pool}{search}{largest}",
+		"thread_pool.search.queue $node->{thread_pool}{search}{queue}",
+		;
     return \@stats;
 }
 
